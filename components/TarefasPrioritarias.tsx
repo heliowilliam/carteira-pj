@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { tarefasPrioritarias, CategoriaTarefa } from '@/lib/tarefas-prioritarias'
+import { tarefasPrioritarias, TarefaPrioritaria, CategoriaTarefa } from '@/lib/tarefas-prioritarias'
 import { cn } from '@/lib/utils'
 import { getRatingColor, getClusterColor, getMatrizColor } from '@/lib/utils'
 import ClientePanel from '@/components/ClientePanel'
@@ -10,11 +10,14 @@ import {
   Bell, CreditCard, Banknote, Star,
   AlertTriangle, Zap, TrendingDown,
   UserPlus, RefreshCw, Target, Timer, Shield,
-  CheckCircle2, ChevronDown, ChevronRight,
+  CheckCircle2, XCircle, ChevronDown, ChevronRight, Clock,
 } from 'lucide-react'
 
-// ── helpers ───────────────────────────────────────────────────────────────────
+// ── Tipos ─────────────────────────────────────────────────────────────────────
+type StatusTarefa = 'pendente' | 'atuada' | 'recusada'
+type TarefaLocal  = TarefaPrioritaria & { status: StatusTarefa }
 
+// ── helpers ───────────────────────────────────────────────────────────────────
 function formatValor(v?: number) {
   if (!v) return null
   if (v >= 1_000_000) return `R$ ${(v / 1_000_000).toFixed(1).replace('.', ',')}M`
@@ -23,14 +26,14 @@ function formatValor(v?: number) {
 }
 
 const tipoMeta: Record<string, { icon: React.ReactNode; cor: string; label: string }> = {
-  atraso:             { icon: <AlertTriangle className="w-3.5 h-3.5" />, cor: '#dc2626', label: 'Atraso' },
-  acao_estrategica:   { icon: <Zap className="w-3.5 h-3.5" />,          cor: '#7c3aed', label: 'Ação Estratégica' },
-  alerta_perda:       { icon: <TrendingDown className="w-3.5 h-3.5" />, cor: '#ea580c', label: 'Alerta de Perda' },
-  conquista:          { icon: <UserPlus className="w-3.5 h-3.5" />,     cor: '#0891b2', label: 'Conquista' },
-  giro_carteira:      { icon: <RefreshCw className="w-3.5 h-3.5" />,    cor: '#b45309', label: 'Giro de Carteira' },
-  estrategia_matriz:  { icon: <Target className="w-3.5 h-3.5" />,       cor: '#065f46', label: 'Estratégia Matriz' },
-  vencimento_limite:  { icon: <Timer className="w-3.5 h-3.5" />,        cor: '#1d4ed8', label: 'LTC Vencendo' },
-  seguro:             { icon: <Shield className="w-3.5 h-3.5" />,       cor: '#047857', label: 'Seguro' },
+  atraso:            { icon: <AlertTriangle className="w-3.5 h-3.5" />, cor: '#dc2626', label: 'Atraso' },
+  acao_estrategica:  { icon: <Zap className="w-3.5 h-3.5" />,          cor: '#7c3aed', label: 'Ação Estratégica' },
+  alerta_perda:      { icon: <TrendingDown className="w-3.5 h-3.5" />, cor: '#ea580c', label: 'Alerta de Perda' },
+  conquista:         { icon: <UserPlus className="w-3.5 h-3.5" />,     cor: '#0891b2', label: 'Conquista' },
+  giro_carteira:     { icon: <RefreshCw className="w-3.5 h-3.5" />,    cor: '#b45309', label: 'Giro de Carteira' },
+  estrategia_matriz: { icon: <Target className="w-3.5 h-3.5" />,       cor: '#065f46', label: 'Estratégia Matriz' },
+  vencimento_limite: { icon: <Timer className="w-3.5 h-3.5" />,        cor: '#1d4ed8', label: 'LTC Vencendo' },
+  seguro:            { icon: <Shield className="w-3.5 h-3.5" />,       cor: '#047857', label: 'Seguro' },
 }
 
 const categoriaMeta: Record<CategoriaTarefa, { label: string; icon: React.ReactNode; cor: string }> = {
@@ -47,33 +50,65 @@ const prioridadeMeta = {
 
 // ── Componente principal ──────────────────────────────────────────────────────
 export default function TarefasPrioritarias() {
-  const [lista, setLista]         = useState(tarefasPrioritarias)
-  const [catFiltro, setCatFiltro] = useState<'todos' | CategoriaTarefa>('todos')
+  // Inicializa todas como 'pendente' (ignora o campo atuada do JSON para UI limpa)
+  const [lista, setLista] = useState<TarefaLocal[]>(() =>
+    tarefasPrioritarias.map(t => ({ ...t, status: 'pendente' as StatusTarefa }))
+  )
+
+  const [catFiltro,    setCatFiltro]    = useState<'todos' | CategoriaTarefa>('todos')
   const [soNaoAtuadas, setSoNaoAtuadas] = useState(false)
-  const [expandedId, setExpandedId]     = useState<string | null>(null)
+  const [expandedId,   setExpandedId]   = useState<string | null>(null)
+  // ID da tarefa que está mostrando os botões ✓/✗
+  const [confirmandoId, setConfirmandoId] = useState<string | null>(null)
 
-  const naoAtuadas = lista.filter(t => !t.atuada).length
+  // Conta apenas pendentes para o badge
+  const totalPendentes = lista.filter(t => t.status === 'pendente').length
 
-  const marcarAtuada = (e: React.MouseEvent, id: string) => {
+  // ── Ações ──────────────────────────────────────────────────────────────────
+
+  // Abre/fecha os botões de confirmação
+  const abrirConfirmacao = (e: React.MouseEvent, id: string) => {
     e.stopPropagation()
-    setLista(prev => prev.map(t => t.id === id ? { ...t, atuada: true } : t))
-    // Fecha o painel se estava aberto
+    setConfirmandoId(prev => prev === id ? null : id)
+  }
+
+  // ✓ — marca como atuada (fica na lista, muda visual)
+  const confirmarAtuada = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation()
+    setLista(prev => prev.map(t => t.id === id ? { ...t, status: 'atuada' } : t))
+    setConfirmandoId(null)
+    if (expandedId === id) setExpandedId(null)
+  }
+
+  // ✗ — recusada: some da lista imediatamente
+  const confirmarRecusada = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation()
+    setLista(prev => prev.map(t => t.id === id ? { ...t, status: 'recusada' } : t))
+    setConfirmandoId(null)
     if (expandedId === id) setExpandedId(null)
   }
 
   const toggleExpand = (id: string) => {
+    // Não expande se estiver em modo de confirmação
+    if (confirmandoId === id) return
     setExpandedId(prev => prev === id ? null : id)
   }
 
+  // ── Filtros e ordenação ────────────────────────────────────────────────────
   const ordemPrioridade = { critica: 0, alta: 1, media: 2 }
   const filtrada = lista
+    .filter(t => t.status !== 'recusada')                              // Recusadas nunca aparecem
     .filter(t => {
       const matchCat = catFiltro === 'todos' || t.categoria === catFiltro
-      const matchAtu = !soNaoAtuadas || !t.atuada
+      const matchAtu = !soNaoAtuadas || t.status === 'pendente'
       return matchCat && matchAtu
     })
     .sort((a, b) => {
-      if (a.atuada !== b.atuada) return a.atuada ? 1 : -1
+      // Pendentes primeiro, atuadas por último
+      if (a.status !== b.status) {
+        if (a.status === 'pendente') return -1
+        if (b.status === 'pendente') return 1
+      }
       return ordemPrioridade[a.prioridade] - ordemPrioridade[b.prioridade]
     })
 
@@ -86,16 +121,16 @@ export default function TarefasPrioritarias() {
         <div className="flex items-center gap-2.5">
           <div className="relative">
             <Bell className="w-5 h-5 text-white" />
-            {naoAtuadas > 0 && (
+            {totalPendentes > 0 && (
               <span className="absolute -top-2.5 -right-2.5 min-w-[18px] h-[18px] bg-red-500 rounded-full text-white text-[10px] font-bold flex items-center justify-center px-0.5 shadow-sm border border-white">
-                {naoAtuadas > 99 ? '99+' : naoAtuadas}
+                {totalPendentes > 99 ? '99+' : totalPendentes}
               </span>
             )}
           </div>
           <span className="text-sm font-bold text-white">Tarefas Prioritárias</span>
-          {naoAtuadas > 0 && (
+          {totalPendentes > 0 && (
             <span className="text-[10px] text-red-300 font-semibold animate-pulse">
-              {naoAtuadas} não atuada{naoAtuadas > 1 ? 's' : ''}
+              {totalPendentes} pendente{totalPendentes > 1 ? 's' : ''}
             </span>
           )}
         </div>
@@ -104,13 +139,13 @@ export default function TarefasPrioritarias() {
         </Link>
       </div>
 
-      {/* ── Filtros ──────────────────────────────────────────────────── */}
+      {/* ── Filtros de categoria ─────────────────────────────────────── */}
       <div className="flex items-center gap-2 px-4 py-2.5 border-b border-gray-100 shrink-0 flex-wrap">
         {(['todos', 'credito', 'nao_credito', 'metodo'] as const).map(cat => {
           const meta  = cat !== 'todos' ? categoriaMeta[cat] : null
           const count = cat === 'todos'
-            ? lista.filter(t => !t.atuada).length
-            : lista.filter(t => t.categoria === cat && !t.atuada).length
+            ? lista.filter(t => t.status === 'pendente').length
+            : lista.filter(t => t.categoria === cat && t.status === 'pendente').length
 
           return (
             <button
@@ -140,10 +175,10 @@ export default function TarefasPrioritarias() {
           onClick={() => setSoNaoAtuadas(v => !v)}
           className={cn(
             'ml-auto flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold transition-all border',
-            soNaoAtuadas ? 'bg-red-500 text-white border-red-500' : 'bg-white text-gray-500 border-gray-200 hover:border-red-300'
+            soNaoAtuadas ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-gray-500 border-gray-200 hover:border-amber-300'
           )}
         >
-          <Bell className="w-3 h-3" /> Só pendentes
+          <Clock className="w-3 h-3" /> Só pendentes
         </button>
       </div>
 
@@ -152,16 +187,19 @@ export default function TarefasPrioritarias() {
         {filtrada.length === 0 && (
           <div className="text-center py-8">
             <CheckCircle2 className="w-8 h-8 text-green-400 mx-auto mb-2" />
-            <p className="text-sm text-gray-400">Todas as tarefas atuadas! 🎉</p>
+            <p className="text-sm text-gray-400 font-medium">Nenhuma tarefa pendente! 🎉</p>
           </div>
         )}
 
         {filtrada.map(t => {
-          const pMeta    = prioridadeMeta[t.prioridade]
-          const tMeta    = tipoMeta[t.tipo] ?? tipoMeta['acao_estrategica']
-          const cMeta    = categoriaMeta[t.categoria]
-          const valor    = formatValor(t.valor)
-          const expanded = expandedId === t.id
+          const pMeta      = prioridadeMeta[t.prioridade]
+          const tMeta      = tipoMeta[t.tipo] ?? tipoMeta['acao_estrategica']
+          const cMeta      = categoriaMeta[t.categoria]
+          const valor      = formatValor(t.valor)
+          const expanded   = expandedId === t.id
+          const confirmando = confirmandoId === t.id
+          const isPendente = t.status === 'pendente'
+          const isAtuada   = t.status === 'atuada'
 
           return (
             <div
@@ -169,55 +207,86 @@ export default function TarefasPrioritarias() {
               onClick={() => toggleExpand(t.id)}
               className={cn(
                 'rounded-xl border p-3.5 transition-all select-none',
-                // Cursor e hover apenas em não-atuadas (atuadas ainda abrem mas sem destaque)
-                'cursor-pointer',
-                t.atuada
-                  ? 'bg-gray-50 border-gray-100 opacity-60 hover:opacity-80'
+                isPendente ? 'cursor-pointer' : 'cursor-default',
+                isAtuada
+                  ? 'bg-gray-50 border-gray-200 opacity-60'
                   : cn(
                       pMeta.bg, pMeta.border, 'border',
-                      'hover:ring-2 hover:ring-offset-1',
-                      pMeta.ring,
+                      isPendente && 'hover:ring-2 hover:ring-offset-1 ' + pMeta.ring,
                       expanded && 'ring-2 ring-offset-1 shadow-md'
                     )
               )}
             >
-              {/* ── Linha 1: tipo + prioridade + categoria + ações ── */}
+              {/* ── Linha 1: badges tipo/prioridade/categoria + botão de status ── */}
               <div className="flex items-center justify-between gap-2 mb-1.5">
                 <div className="flex items-center gap-1.5 flex-wrap">
+                  {/* Tipo */}
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-white"
                     style={{ backgroundColor: tMeta.cor }}>
                     {tMeta.icon} {tMeta.label}
                   </span>
-                  {!t.atuada && (
+                  {/* Prioridade (só pendentes) */}
+                  {isPendente && (
                     <span className={cn('text-[10px] font-black px-2 py-0.5 rounded-full border', pMeta.bg, pMeta.text, pMeta.border)}>
                       ● {pMeta.label}
                     </span>
                   )}
+                  {/* Categoria */}
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium text-white"
                     style={{ backgroundColor: cMeta.cor }}>
                     {cMeta.icon} {cMeta.label}
                   </span>
                 </div>
 
-                {/* Ações direita: marcar atuada + chevron */}
+                {/* ── Área de ação (direita) ── */}
                 <div className="flex items-center gap-1.5 shrink-0">
-                  {!t.atuada ? (
+
+                  {/* ESTADO: Pendente — botão que abre confirmação */}
+                  {isPendente && !confirmando && (
                     <button
-                      onClick={e => marcarAtuada(e, t.id)}
-                      className="text-[10px] font-semibold px-2.5 py-1 rounded-lg bg-white border border-gray-200 text-gray-600 hover:border-green-400 hover:text-green-700 transition-colors whitespace-nowrap"
+                      onClick={e => abrirConfirmacao(e, t.id)}
+                      className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-300 text-amber-700 hover:bg-amber-100 transition-colors whitespace-nowrap"
                     >
-                      ✓ Atuada
+                      <Clock className="w-3 h-3" /> Pendente
                     </button>
-                  ) : (
+                  )}
+
+                  {/* ESTADO: Confirmação — botões ✓ e ✗ */}
+                  {isPendente && confirmando && (
+                    <div className="flex items-center gap-1">
+                      <span className="text-[9px] text-gray-400 mr-1">Atuada?</span>
+                      {/* ✓ Sim — marca como atuada */}
+                      <button
+                        onClick={e => confirmarAtuada(e, t.id)}
+                        title="Sim — marcar como atuada"
+                        className="w-7 h-7 rounded-lg bg-green-500 hover:bg-green-600 text-white flex items-center justify-center transition-colors shadow-sm"
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                      </button>
+                      {/* ✗ Não — recusa e remove da lista */}
+                      <button
+                        onClick={e => confirmarRecusada(e, t.id)}
+                        title="Não — recusar e remover"
+                        className="w-7 h-7 rounded-lg bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition-colors shadow-sm"
+                      >
+                        <XCircle className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* ESTADO: Atuada */}
+                  {isAtuada && (
                     <span className="inline-flex items-center gap-1 text-[10px] text-green-600 font-semibold">
                       <CheckCircle2 className="w-3.5 h-3.5" /> Atuada
                     </span>
                   )}
-                  {/* Indicador de expansão */}
-                  {expanded
-                    ? <ChevronDown  className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                    : <ChevronRight className="w-3.5 h-3.5 text-gray-300 shrink-0" />
-                  }
+
+                  {/* Chevron de expansão (só pendentes) */}
+                  {isPendente && (
+                    expanded
+                      ? <ChevronDown  className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                      : <ChevronRight className="w-3.5 h-3.5 text-gray-300 shrink-0" />
+                  )}
                 </div>
               </div>
 
@@ -225,7 +294,7 @@ export default function TarefasPrioritarias() {
               <div className="flex items-start justify-between gap-2">
                 <p className={cn(
                   'text-sm font-bold leading-tight',
-                  t.atuada ? 'text-gray-400 line-through' : pMeta.text
+                  isAtuada ? 'text-gray-400 line-through' : pMeta.text
                 )}>
                   {t.titulo}
                 </p>
@@ -244,7 +313,7 @@ export default function TarefasPrioritarias() {
                 )}
               </p>
 
-              {/* ── Linha 4: dados resumidos do cliente ── */}
+              {/* ── Linha 4: cliente + badges ── */}
               <div className="flex items-center gap-1.5 mt-2 flex-wrap">
                 <span className="text-[11px] font-semibold text-gray-700 truncate max-w-[160px]">
                   {t.cliente}
@@ -258,14 +327,13 @@ export default function TarefasPrioritarias() {
                     {b.label}
                   </span>
                 ))}
-                {/* Dica de clique quando fechado */}
-                {!expanded && (
+                {isPendente && !expanded && !confirmando && (
                   <span className="ml-auto text-[9px] text-gray-300 italic">clique para ver perfil</span>
                 )}
               </div>
 
               {/* ── Painel expandido: perfil do cliente ── */}
-              {expanded && <ClientePanel clienteId={t.cliente_id} />}
+              {expanded && isPendente && <ClientePanel clienteId={t.cliente_id} />}
             </div>
           )
         })}
