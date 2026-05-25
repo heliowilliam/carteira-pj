@@ -2,19 +2,15 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { tarefasPrioritarias, TarefaPrioritaria, CategoriaTarefa } from '@/lib/tarefas-prioritarias'
-import { clientes } from '@/lib/data'
+import { tarefasPrioritarias, CategoriaTarefa } from '@/lib/tarefas-prioritarias'
 import { cn } from '@/lib/utils'
-import {
-  getRatingColor, getClusterColor, getMatrizColor, getMatrizLabel,
-  getSORColor, getSOFColor, formatCurrency, formatPercent,
-} from '@/lib/utils'
+import { getRatingColor, getClusterColor, getMatrizColor } from '@/lib/utils'
+import ClientePanel from '@/components/ClientePanel'
 import {
   Bell, CreditCard, Banknote, Star,
   AlertTriangle, Zap, TrendingDown,
   UserPlus, RefreshCw, Target, Timer, Shield,
-  CheckCircle2, ChevronDown, ChevronRight, ExternalLink,
-  Phone, Mail, Building2,
+  CheckCircle2, ChevronDown, ChevronRight,
 } from 'lucide-react'
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -47,115 +43,6 @@ const prioridadeMeta = {
   critica: { label: 'CRÍTICA', bg: 'bg-red-100',    text: 'text-red-700',    border: 'border-red-300',    ring: 'hover:ring-red-300' },
   alta:    { label: 'ALTA',    bg: 'bg-orange-100', text: 'text-orange-700', border: 'border-orange-200', ring: 'hover:ring-orange-200' },
   media:   { label: 'MÉDIA',   bg: 'bg-blue-50',    text: 'text-blue-600',   border: 'border-blue-100',   ring: 'hover:ring-blue-200' },
-}
-
-// ── Painel expandido do cliente ───────────────────────────────────────────────
-function ClientePanel({ clienteId }: { clienteId: string }) {
-  const c = clientes.find(cl => cl.id === clienteId)
-
-  if (!c) return (
-    <div className="mt-3 pt-3 border-t border-gray-200">
-      <p className="text-xs text-gray-400 text-center py-2">Dados do cliente não disponíveis.</p>
-    </div>
-  )
-
-  const sorColor = getSORColor(c.sor)
-  const sofColor = getSOFColor(c.sof)
-  const avatarLetter = c.razao_social.charAt(0)
-
-  return (
-    <div className="mt-3 pt-3 border-t border-gray-200 space-y-3">
-
-      {/* Identificação */}
-      <div className="flex items-center gap-2.5">
-        <div
-          className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-black text-sm shrink-0 shadow-sm"
-          style={{ background: 'linear-gradient(135deg, #002d6b, #2563eb)' }}
-        >
-          {avatarLetter}
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-xs font-bold text-gray-800 leading-tight">{c.razao_social}</p>
-          <p className="text-[10px] text-gray-400 mt-0.5">{c.cnpj}</p>
-          {c.grupo_empresarial && (
-            <p className="text-[10px] text-blue-600 flex items-center gap-1 mt-0.5">
-              <Building2 className="w-2.5 h-2.5" /> {c.grupo_empresarial}
-            </p>
-          )}
-        </div>
-      </div>
-
-      {/* Badges */}
-      <div className="flex items-center gap-1.5 flex-wrap">
-        <span className={cn('text-[10px] font-bold px-2 py-0.5 rounded-full border', getRatingColor(c.rating))}>
-          Rating {c.rating}
-        </span>
-        <span className={cn('text-[10px] font-bold px-2 py-0.5 rounded-full', getClusterColor(c.cluster))}>
-          {c.cluster}
-        </span>
-        <span className={cn('text-[10px] font-bold px-2 py-0.5 rounded-full', getMatrizColor(c.matriz_relacionamento))}>
-          {getMatrizLabel(c.matriz_relacionamento)}
-        </span>
-        {c.melhor_conversa
-          ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-green-100 text-green-700">✅ M. Conversa</span>
-          : <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">⏳ Sem M. Conversa</span>
-        }
-      </div>
-
-      {/* KPIs */}
-      <div className="grid grid-cols-2 gap-1.5">
-        {[
-          { label: 'Faturamento', value: formatCurrency(c.faturamento), color: '' },
-          { label: 'PB Atual',    value: formatCurrency(c.pb_atual),    color: '' },
-          { label: 'SOR',         value: formatPercent(c.sor),          color: sorColor },
-          { label: 'SOF',         value: formatPercent(c.sof),          color: sofColor },
-        ].map(k => (
-          <div key={k.label} className="bg-white rounded-lg px-2.5 py-1.5 border border-gray-100">
-            <p className="text-[9px] text-gray-400">{k.label}</p>
-            <p className={cn('text-[12px] font-black mt-0.5', k.color || 'text-gray-800')}>{k.value}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Crédito resumo */}
-      {c.valor_share_itau > 0 && (
-        <div className="grid grid-cols-2 gap-1.5">
-          <div className="bg-blue-50 rounded-lg px-2.5 py-1.5 border border-blue-100">
-            <p className="text-[9px] text-blue-500">Crédito Itaú</p>
-            <p className="text-[12px] font-black text-blue-900">{formatCurrency(c.valor_share_itau)}</p>
-          </div>
-          <div className="bg-gray-50 rounded-lg px-2.5 py-1.5 border border-gray-100">
-            <p className="text-[9px] text-gray-400">Total BACEN</p>
-            <p className="text-[12px] font-black text-gray-700">{formatCurrency(c.valor_bacen_total)}</p>
-          </div>
-        </div>
-      )}
-
-      {/* Ações */}
-      <div className="flex gap-2">
-        <Link
-          href={`/carteira/${c.id}`}
-          onClick={e => e.stopPropagation()}
-          className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11px] font-bold text-white transition-colors"
-          style={{ backgroundColor: '#002d6b' }}
-        >
-          <ExternalLink className="w-3 h-3" /> Ver perfil completo
-        </Link>
-        <button
-          onClick={e => e.stopPropagation()}
-          className="flex items-center justify-center gap-1 px-3 py-2 rounded-lg text-[11px] font-semibold bg-white border border-gray-200 text-gray-600 hover:border-blue-300 hover:text-blue-700 transition-colors"
-        >
-          <Phone className="w-3 h-3" />
-        </button>
-        <button
-          onClick={e => e.stopPropagation()}
-          className="flex items-center justify-center gap-1 px-3 py-2 rounded-lg text-[11px] font-semibold bg-white border border-gray-200 text-gray-600 hover:border-blue-300 hover:text-blue-700 transition-colors"
-        >
-          <Mail className="w-3 h-3" />
-        </button>
-      </div>
-    </div>
-  )
 }
 
 // ── Componente principal ──────────────────────────────────────────────────────

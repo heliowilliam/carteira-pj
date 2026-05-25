@@ -11,6 +11,7 @@ export type PipelineAlerta = {
   vencimento: VencimentoStatus
   diasAtraso?: number     // preenchido quando status = 'vencido'
   cliente: string
+  cliente_id: string      // ID real para navegação e painel
   cnpj?: string
 }
 
@@ -25,6 +26,7 @@ export const pipelineAlertas: PipelineAlerta[] = [
     temperatura: 'quente',
     vencimento: 'hoje',
     cliente: 'Grupo Alfa Logística S.A.',
+    cliente_id: 'c11',
     cnpj: '48.951.343/3200-73',
   },
   {
@@ -35,6 +37,7 @@ export const pipelineAlertas: PipelineAlerta[] = [
     temperatura: 'quente',
     vencimento: 'hoje',
     cliente: 'Beta Tecnologia Ltda.',
+    cliente_id: 'c6',
     cnpj: '83.172.788/9579-17',
   },
   {
@@ -45,6 +48,7 @@ export const pipelineAlertas: PipelineAlerta[] = [
     temperatura: 'frio',
     vencimento: 'amanha',
     cliente: 'Saúde Grupo Econômico 002 Ltda.',
+    cliente_id: 'c2',
     cnpj: '22.362.316/6587-81',
   },
   {
@@ -55,6 +59,7 @@ export const pipelineAlertas: PipelineAlerta[] = [
     temperatura: 'quente',
     vencimento: 'amanha',
     cliente: 'Delta Alimentos S.A.',
+    cliente_id: 'c1',
   },
   {
     id: 'p5',
@@ -65,6 +70,7 @@ export const pipelineAlertas: PipelineAlerta[] = [
     vencimento: 'vencido',
     diasAtraso: 2,
     cliente: 'Construtora Gama Engenharia',
+    cliente_id: 'c7',
   },
   {
     id: 'p6',
@@ -74,6 +80,7 @@ export const pipelineAlertas: PipelineAlerta[] = [
     temperatura: 'quente',
     vencimento: 'proximos',
     cliente: 'Eta Indústria Têxtil S.A.',
+    cliente_id: 'c4',
   },
 
   // ── NÃO CRÉDITO ─────────────────────────────────────────────────────────────
@@ -85,6 +92,7 @@ export const pipelineAlertas: PipelineAlerta[] = [
     temperatura: 'quente',
     vencimento: 'hoje',
     cliente: 'Zeta Saúde e Bem-Estar Ltda.',
+    cliente_id: 'c2',
   },
   {
     id: 'p8',
@@ -94,6 +102,7 @@ export const pipelineAlertas: PipelineAlerta[] = [
     temperatura: 'frio',
     vencimento: 'amanha',
     cliente: 'Epsilon Consultoria ME',
+    cliente_id: 'c10',
   },
   {
     id: 'p9',
@@ -102,6 +111,7 @@ export const pipelineAlertas: PipelineAlerta[] = [
     temperatura: 'quente',
     vencimento: 'hoje',
     cliente: 'Tecnologia Grupo Econômico 001 S.A.',
+    cliente_id: 'c3',
   },
   {
     id: 'p10',
@@ -112,6 +122,7 @@ export const pipelineAlertas: PipelineAlerta[] = [
     vencimento: 'vencido',
     diasAtraso: 1,
     cliente: 'Theta Varejo Online Ltda.',
+    cliente_id: 'c9',
   },
 
   // ── MÉTODO ──────────────────────────────────────────────────────────────────
@@ -122,6 +133,7 @@ export const pipelineAlertas: PipelineAlerta[] = [
     vencimento: 'vencido',
     diasAtraso: 1,
     cliente: 'Transporte Grupo Econômico 002 Ltda.',
+    cliente_id: 'c5',
   },
   {
     id: 'p12',
@@ -130,6 +142,7 @@ export const pipelineAlertas: PipelineAlerta[] = [
     temperatura: 'quente',
     vencimento: 'hoje',
     cliente: 'Grupo Alfa Logística S.A.',
+    cliente_id: 'c11',
   },
   {
     id: 'p13',
@@ -137,6 +150,7 @@ export const pipelineAlertas: PipelineAlerta[] = [
     categoria: 'metodo',
     vencimento: 'amanha',
     cliente: 'Construtora Gama Engenharia',
+    cliente_id: 'c7',
   },
   {
     id: 'p14',
@@ -145,5 +159,6 @@ export const pipelineAlertas: PipelineAlerta[] = [
     temperatura: 'quente',
     vencimento: 'proximos',
     cliente: 'Delta Alimentos S.A.',
+    cliente_id: 'c1',
   },
 ]
